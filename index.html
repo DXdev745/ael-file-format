@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Environment Log File Format Project</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Tailwind's slate-50 */
+            color: #1e293b; /* Tailwind's slate-800 */
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 960px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: #ffffff;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-xl */
+        }
+        h1 {
+            font-size: 2.5rem; /* text-4xl */
+            font-weight: 700; /* font-bold */
+            color: #1d4ed8; /* Tailwind's blue-700 */
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #3b82f6; /* Tailwind's blue-500 */
+        }
+        h2 {
+            font-size: 2rem; /* text-3xl */
+            font-weight: 600; /* font-semibold */
+            color: #1d4ed8; /* Tailwind's blue-700 */
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #93c5fd; /* Tailwind's blue-300 */
+        }
+        h3 {
+            font-size: 1.5rem; /* text-2xl */
+            font-weight: 600; /* font-semibold */
+            color: #1d4ed8; /* Tailwind's blue-700 */
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        p {
+            margin-bottom: 1rem;
+            font-size: 1.125rem; /* text-lg */
+        }
+        ul {
+            list-style-type: disc;
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        li {
+            margin-bottom: 0.5rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+        th, td {
+            border: 1px solid #cbd5e1; /* Tailwind's slate-300 */
+            padding: 0.75rem;
+            text-align: left;
+        }
+        th {
+            background-color: #e0f2fe; /* Tailwind's blue-50 */
+            font-weight: 600;
+            color: #1e40af; /* Tailwind's blue-800 */
+        }
+        tr:nth-child(even) {
+            background-color: #f1f5f9; /* Tailwind's slate-100 */
+        }
+        pre {
+            background-color: #1e293b; /* Tailwind's slate-800 */
+            color: #e2e8f0; /* Tailwind's slate-200 */
+            padding: 1rem;
+            border-radius: 0.5rem; /* rounded-lg */
+            overflow-x: auto;
+            margin-bottom: 1rem;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.9rem;
+        }
+        code {
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            background-color: #e2e8f0; /* Tailwind's slate-200 */
+            padding: 0.2em 0.4em;
+            border-radius: 0.25rem;
+            color: #1e293b; /* Tailwind's slate-800 */
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+            color: inherit;
+        }
+        a {
+            color: #3b82f6; /* Tailwind's blue-500 */
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Adaptive Environment Log File Format (.ael) Project</h1>
+
+        <p>Welcome to the Adaptive Environment Log File Format (<code>.ael</code>) project!</p>
+
+        <p>This project introduces a novel binary file format designed to capture a continuous, synchronized stream of <strong>environmental sensor data</strong> and <strong>associated human interaction/device state changes</strong> within a specific physical space (e.g., an office, a smart home room).</p>
+
+        <p>The unique purpose of the <code>.ael</code> format isn't merely to log data, but to enable an AI or adaptive system to <strong>learn and predict human comfort, preference, and behavior patterns</strong> to proactively optimize the environment. It facilitates "environmental fingerprinting" for hyper-personalization and contextual anomaly detection for efficiency and safety.</p>
+
+        <p>This project is open-source and licensed under the <a href="LICENSE">MIT License</a>. For more details, please refer to the <a href="README.md">README.md</a> on GitHub.</p>
+
+        <h2>File Format Specification</h2>
+
+        <p>The <code>.ael</code> file format is structured as a fixed-size header followed by a sequence of variable-length data blocks, each representing a "snapshot" or "event" at a specific timestamp.</p>
+
+        <h3>1. File Header (64 bytes)</h3>
+        <p>The header provides general information about the log file.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Field</th>
+                    <th>Data Type</th>
+                    <th>Size (Bytes)</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Magic Number</td>
+                    <td><code>char[8]</code></td>
+                    <td>8</td>
+                    <td>A string of <code>AEL_LOG\0</code></td>
+                </tr>
+                <tr>
+                    <td>Version</td>
+                    <td><code>unsigned short</code></td>
+                    <td>2</td>
+                    <td>The format version (currently <code>1</code>)</td>
+                </tr>
+                <tr>
+                    <td>Creation Timestamp</td>
+                    <td><code>unsigned long long</code></td>
+                    <td>8</td>
+                    <td>Unix timestamp (seconds since epoch) when the log file was created</td>
+                </tr>
+                <tr>
+                    <td>Reserved</td>
+                    <td><code>char[46]</code></td>
+                    <td>46</td>
+                    <td>Reserved for future use (fill with <code>\0</code>)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>2. Data Block Structure (Variable Size)</h3>
+        <p>Following the header, the file contains a series of data blocks. Each block represents a single snapshot of the environment and interactions.</p>
+
+        <h4>Data Block Header (16 bytes)</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Field</th>
+                    <th>Data Type</th>
+                    <th>Size (Bytes)</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Block Length</td>
+                    <td><code>unsigned int</code></td>
+                    <td>4</td>
+                    <td>Total length of this data block <em>including</em> its own header (in bytes)</td>
+                </tr>
+                <tr>
+                    <td>Block Timestamp</td>
+                    <td><code>unsigned long long</code></td>
+                    <td>8</td>
+                    <td>Unix timestamp (milliseconds since epoch) for this specific data snapshot</td>
+                </tr>
+                <tr>
+                    <td>Flags / Event Type</td>
+                    <td><code>unsigned short</code></td>
+                    <td>2</td>
+                    <td>Bitmask for special events (e.g., <code>0x01</code> for User Override Light, <code>0x02</code> for User Override HVAC, <code>0x04</code> for User Override Blinds)</td>
+                </tr>
+                <tr>
+                    <td>Reserved</td>
+                    <td><code>unsigned short</code></td>
+                    <td>2</td>
+                    <td>Reserved for future use (fill with <code>\0</code>)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h4>Data Block Content (26 bytes, follows Block Header)</h4>
+        <p>This section stores the actual sensor readings and device states.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Field</th>
+                    <th>Data Type</th>
+                    <th>Size (Bytes)</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Environmental Sensors:</strong></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>Light Intensity</td>
+                    <td><code>float</code></td>
+                    <td>4</td>
+                    <td>Ambient light in Lux</td>
+                </tr>
+                <tr>
+                    <td>Sound Level</td>
+                    <td><code>float</code></td>
+                    <td>4</td>
+                    <td>Ambient sound in dB</td>
+                </tr>
+                <tr>
+                    <td>Air Temperature</td>
+                    <td><code>float</code></td>
+                    <td>4</td>
+                    <td>Temperature in Celsius</td>
+                </tr>
+                <tr>
+                    <td>Humidity</td>
+                    <td><code>float</code></td>
+                    <td>4</td>
+                    <td>Relative humidity percentage</td>
+                </tr>
+                <tr>
+                    <td>CO2 Level</td>
+                    <td><code>unsigned short</code></td>
+                    <td>2</td>
+                    <td>CO2 in PPM (parts per million)</td>
+                </tr>
+                <tr>
+                    <td><strong>Device States / Interactions:</strong></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>Lighting Brightness</td>
+                    <td><code>unsigned char</code></td>
+                    <td>1</td>
+                    <td>0-100% brightness</td>
+                </tr>
+                <tr>
+                    <td>HVAC Thermostat Setpoint</td>
+                    <td><code>float</code></td>
+                    <td>4</td>
+                    <td>Desired temperature setting</td>
+                </tr>
+                <tr>
+                    <td>HVAC Fan Speed</td>
+                    <td><code>unsigned char</code></td>
+                    <td>1</td>
+                    <td>0-100% fan speed</td>
+                </tr>
+                <tr>
+                    <td>Blinds Position</td>
+                    <td><code>unsigned char</code></td>
+                    <td>1</td>
+                    <td>0-100% open</td>
+                </tr>
+                <tr>
+                    <td>User Override Flag</td>
+                    <td><code>unsigned char</code></td>
+                    <td>1</td>
+                    <td><code>0</code>=None, <code>1</code>=Light, <code>2</code>=HVAC, <code>4</code>=Blinds (can be combined)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Tools</h2>
+        <ul>
+            <li><code>capture_ael_log.py</code>: A Python script that simulates capturing environmental sensor data and device states, then packages this information into a <code>.ael</code> log file according to the specified format.</li>
+            <li><code>view_ael_log.py</code>: A Python script that reads an existing <code>.ael</code> log file, parses its binary structure, and displays the captured environmental information in a human-readable format.</li>
+            <li><a href="ael_viewer.html">AEL File Viewer (HTML)</a>: A web-based tool to visualize <code>.ael</code> files directly in your browser.</li>
+        </ul>
+
+        <h2>How to Use</h2>
+
+        <h3>0. Prerequisites</h3>
+        <p>Ensure you have Python 3 installed. You'll need the <code>psutil</code> library (for potential future expansion with real system data, currently used for dummy data generation). It's highly recommended to use a virtual environment:</p>
+        <pre><code># Create a virtual environment (if you haven't already)
+python3 -m venv venv
+
+# Activate the virtual environment
+source venv/bin/activate
+
+# Install psutil
+pip install psutil
+</code></pre>
+
+        <h3>1. Capture an AEL Log</h3>
+        <p>To create an <code>environment_log.ael</code> file with simulated data (e.g., 10 snapshots, every 2 seconds):</p>
+        <pre><code>python3 capture_ael_log.py
+</code></pre>
+        <p><em>(You can modify <code>num_snapshots_to_capture</code> and <code>capture_interval_seconds</code> in the script's <code>if __name__ == "__main__":</code> block.)</em></p>
+
+        <h3>2. View an AEL Log</h3>
+        <p>To read and display the contents of <code>environment_log.ael</code>:</p>
+        <pre><code>python3 view_ael_log.py
+</code></pre>
+      <a href="https://github.com/DXdev745/ael-file-format/blob/main/LICENSE">MIT LICENSE</a>
+      <br>
+    <a href="https://github.com/DXdev745/ael-file-format/blob/main/README.md?plain=1">README</a>
+    </div>
+   
+</body>
+</html>
