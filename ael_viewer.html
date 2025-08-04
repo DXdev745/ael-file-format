@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AEL File Viewer</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Tailwind's slate-100 */
+            color: #1e293b; /* Tailwind's slate-800 */
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-xl */
+            padding: 2rem;
+            max-width: 800px;
+            width: 100%;
+            margin-top: 2rem;
+        }
+        h1 {
+            font-size: 2.5rem; /* text-4xl */
+            font-weight: 700; /* font-bold */
+            color: #1d4ed8; /* Tailwind's blue-700 */
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .file-input-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        input[type="file"] {
+            display: none; /* Hide default file input */
+        }
+        .custom-file-upload {
+            background-color: #3b82f6; /* Tailwind's blue-500 */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem; /* rounded-lg */
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .custom-file-upload:hover {
+            background-color: #2563eb; /* Tailwind's blue-600 */
+        }
+        .file-name-display {
+            margin-top: 0.75rem;
+            font-style: italic;
+            color: #64748b; /* Tailwind's slate-500 */
+        }
+        .output-area {
+            background-color:001000; /* Tailwind's slate-50 */
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            min-height: 200px;
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0; /* Tailwind's slate-200 */
+            white-space: pre-wrap; /* Preserve whitespace and wrap lines */
+            word-wrap: break-word; /* Break long words */
+        }
+        .error-message {
+            color: #ef4444; /* Tailwind's red-500 */
+            font-weight: 600;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        .loading-indicator {
+            text-align: center;
+            margin-top: 1rem;
+            font-style: italic;
+            color: #475569; /* Tailwind's slate-600 */
+        }
+        .snapshot-header {
+            font-weight: bold;
+            color: #0f172a; /* Tailwind's slate-900 */
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px dashed #cbd5e1; /* Tailwind's slate-300 */
+            padding-bottom: 0.25rem;
+        }
+        .header-info {
+            font-weight: bold;
+            color: #0f172a;
+            margin-bottom: 1rem;
+        }
+        .header-info span {
+            font-weight: normal;
+            color: #475569;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AEL File Viewer</h1>
+
+        <div class="file-input-container">
+            <label for="aelFileInput" class="custom-file-upload">
+                Choose an .ael File
+            </label>
+            <input type="file" id="aelFileInput" accept=".ael">
+            <span id="fileNameDisplay" class="file-name-display">No file chosen</span>
+        </div>
+
+        <div id="loadingIndicator" class="loading-indicator hidden">
+            Parsing file... Please wait.
+        </div>
+    <pre>
+       <code>
+        <div id="output" class="output-area">
+            Select an AEL file to view its contents.
+        </div>
+        </code>
+    </pre>
+
+        <div id="errorMessage" class="error-message hidden"></div>
+    </div>
+
+    <script>
+        const AEL_MAGIC_NUMBER = [0x41, 0x45, 0x4c, 0x5f, 0x4c, 0x4f, 0x47, 0x00]; // 'AEL_LOG\0'
+        const AEL_VERSION = 1;
+        const AEL_HEADER_SIZE = 64;
+        const AEL_DATA_BLOCK_HEADER_SIZE = 16;
+        const AEL_DATA_BLOCK_CONTENT_SIZE = 26;
+
+        // User Override Flags (must match encoder)
+        const USER_OVERRIDE_NONE = 0x00;
+        const USER_OVERRIDE_LIGHT = 0x01;
+        const USER_OVERRIDE_HVAC = 0x02;
+        const USER_OVERRIDE_BLINDS = 0x04;
+
+        const aelFileInput = document.getElementById('aelFileInput');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const outputDiv = document.getElementById('output');
+        const errorMessageDiv = document.getElementById('errorMessage');
+
+        aelFileInput.addEventListener('change', handleFileSelect);
+
+        function showLoading(message) {
+            outputDiv.innerHTML = '';
+            errorMessageDiv.classList.add('hidden');
+            loadingIndicator.classList.remove('hidden');
+            loadingIndicator.textContent = message || 'Parsing file...';
+        }
+
+        function hideLoading() {
+            loadingIndicator.classList.add('hidden');
+        }
+
+        function showError(message) {
+            hideLoading();
+            outputDiv.innerHTML = '';
+            errorMessageDiv.textContent = `Error: ${message}`;
+            errorMessageDiv.classList.remove('hidden');
+        }
+
+        function arrayBufferToHex(buffer) {
+            return Array.from(new Uint8Array(buffer))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        }
+
+        function parseUserOverrideFlags(flags) {
+            const overrides = [];
+            if (flags & USER_OVERRIDE_LIGHT) overrides.push("Light");
+            if (flags & USER_OVERRIDE_HVAC) overrides.push("HVAC");
+            if (flags & USER_OVERRIDE_BLINDS) overrides.push("Blinds");
+            return overrides.length > 0 ? overrides.join(", ") : "None";
+        }
+
+        function formatTimestamp(unixTimestampMs) {
+            const date = new Date(Number(unixTimestampMs)); // Convert BigInt to Number for Date constructor
+            return date.toLocaleString(); // Formats date and time based on user's locale
+        }
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                fileNameDisplay.textContent = 'No file chosen';
+                outputDiv.innerHTML = 'Select an AEL file to view its contents.';
+                errorMessageDiv.classList.add('hidden');
+                return;
+            }
+
+            fileNameDisplay.textContent = file.name;
+            showLoading(`Reading "${file.name}"...`);
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const buffer = e.target.result; // ArrayBuffer
+                    parseAELFile(buffer);
+                } catch (error) {
+                    console.error("Error reading or parsing file:", error);
+                    showError(`Failed to read or parse file: ${error.message}`);
+                } finally {
+                    hideLoading();
+                }
+            };
+
+            reader.onerror = function() {
+                showError('Failed to read file.');
+                hideLoading();
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseAELFile(buffer) {
+            const view = new DataView(buffer);
+            let offset = 0;
+            const littleEndian = true; // AEL format uses little-endian
+
+            let outputHtml = '';
+
+            // --- 1. Read File Header ---
+            if (buffer.byteLength < AEL_HEADER_SIZE) {
+                showError(`File too small. Expected at least ${AEL_HEADER_SIZE} bytes for header.`);
+                return;
+            }
+
+            // Magic Number (8 bytes)
+            const magicNumberBytes = [];
+            for (let i = 0; i < 8; i++) {
+                magicNumberBytes.push(view.getUint8(offset + i));
+            }
+            offset += 8;
+
+            if (!magicNumberBytes.every((val, i) => val === AEL_MAGIC_NUMBER[i])) {
+                showError("Invalid magic number. This might not be a valid AEL file.");
+                return;
+            }
+
+            // Version (2 bytes)
+            const version = view.getUint16(offset, littleEndian);
+            offset += 2;
+
+            if (version !== AEL_VERSION) {
+                outputHtml += `<p class="text-yellow-600 font-semibold">Warning: File version mismatch. Expected ${AEL_VERSION}, got ${version}.</p>`;
+            }
+
+            // Creation Timestamp (8 bytes - unsigned long long)
+            // JavaScript's DataView.getBigUint64 returns a BigInt
+            const creationTimestampSec = view.getBigUint64(offset, littleEndian);
+            offset += 8;
+
+            // Reserved (46 bytes) - skip
+            offset += 46;
+
+            outputHtml += `<div class="header-info">
+                <p>--- AEL Log Header ---</p>
+                <p>Magic Number: <span>${String.fromCharCode(...magicNumberBytes.filter(b => b !== 0))}</span></p>
+                <p>Version: <span>${version}</span></p>
+                <p>Creation Time: <span>${formatTimestamp(creationTimestampSec * 1000n)}</span></p>
+                <p>------------------------------</p>
+            </div>`;
+
+            // --- 2. Read Data Blocks ---
+            let snapshotCount = 0;
+            while (offset < buffer.byteLength) {
+                // Data Block Header (16 bytes)
+                if (offset + AEL_DATA_BLOCK_HEADER_SIZE > buffer.byteLength) {
+                    outputHtml += `<p class="text-yellow-600 font-semibold">Warning: Incomplete data block header at end of file. Stopping.</p>`;
+                    break;
+                }
+
+                const blockLength = view.getUint32(offset, littleEndian);
+                offset += 4;
+                const blockTimestampMs = view.getBigUint64(offset, littleEndian);
+                offset += 8;
+                const flags = view.getUint16(offset, littleEndian);
+                offset += 2;
+                const reservedBlock = view.getUint16(offset, littleEndian); // Skip
+                offset += 2;
+
+                // Data Block Content (26 bytes)
+                const expectedContentSize = blockLength - AEL_DATA_BLOCK_HEADER_SIZE;
+                if (expectedContentSize !== AEL_DATA_BLOCK_CONTENT_SIZE) {
+                    showError(`Mismatched content size for snapshot ${snapshotCount + 1}. Expected ${AEL_DATA_BLOCK_CONTENT_SIZE}, got ${expectedContentSize}. Data might be corrupt. Stopping.`);
+                    return;
+                }
+
+                if (offset + AEL_DATA_BLOCK_CONTENT_SIZE > buffer.byteLength) {
+                    outputHtml += `<p class="text-yellow-600 font-semibold">Warning: Incomplete data block content for snapshot ${snapshotCount + 1}. Stopping.</p>`;
+                    break;
+                }
+
+                const light = view.getFloat32(offset, littleEndian); offset += 4;
+                const sound = view.getFloat32(offset, littleEndian); offset += 4;
+                const temp = view.getFloat32(offset, littleEndian); offset += 4;
+                const humidity = view.getFloat32(offset, littleEndian); offset += 4;
+                const co2 = view.getUint16(offset, littleEndian); offset += 2;
+                const lightBrightness = view.getUint8(offset); offset += 1;
+                const hvacSetpoint = view.getFloat32(offset, littleEndian); offset += 4;
+                const hvacFanSpeed = view.getUint8(offset); offset += 1;
+                const blindsPosition = view.getUint8(offset); offset += 1;
+                const userOverrideFlags = view.getUint8(offset); offset += 1;
+
+                snapshotCount++;
+                outputHtml += `<div class="snapshot-header">--- Snapshot ${snapshotCount} ---</div>`;
+                outputHtml += `<p>Timestamp: <span>${formatTimestamp(blockTimestampMs)}</span></p>`;
+                outputHtml += `<p>&nbsp;&nbsp;Light: <span>${light.toFixed(2)} Lux</span></p>`;
+                outputHtml += `<p>&nbsp;&nbsp;Sound: <span>${sound.toFixed(2)} dB</span></p>`;
+                outputHtml += `<p>&nbsp;&nbsp;Temp: <span>${temp.toFixed(2)} °C</span></p>`;
+                outputHtml += `<p>&nbsp;&nbsp;Humidity: <span>${humidity.toFixed(2)} %</span></p>`;
+                outputHtml += `<p>&nbsp;&nbsp;CO2: <span>${co2} PPM</span></p>`;
+                outputHtml += `<p>&nbsp;&nbsp;Light Brightness: <span>${lightBrightness}%</span></p>`;
+                outputHtml += `<p>&nbsp;&nbsp;HVAC Setpoint: <span>${hvacSetpoint.toFixed(1)} °C</span></p>`;
+                outputHtml += `<p>&nbsp;&nbsp;HVAC Fan Speed: <span>${hvacFanSpeed}%</span></p>`;
+                outputHtml += `<p>&nbsp;&nbsp;Blinds Position: <span>${blindsPosition}% open</span></p>`;
+                outputHtml += `<p>&nbsp;&nbsp;User Override: <span>${parseUserOverrideFlags(userOverrideFlags)}</span></p>`;
+            }
+
+            outputHtml += `<p class="text-blue-700 font-bold mt-4">Successfully read ${snapshotCount} snapshots.</p>`;
+            outputDiv.innerHTML = outputHtml;
+            hideLoading();
+        }
+    </script>
+</body>
+</html>
